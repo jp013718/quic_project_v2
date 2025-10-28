@@ -27,7 +27,8 @@ class CardServer(aioquic.asyncio.QuicConnectionProtocol):
     card = bytes(f"No card by the name '{data}' found...", encoding='utf-8')
     if data == '-r': 
       card_obj = self.card_df.sample()
-      if card_obj["layout"].values[0] == "transform":
+      print(f"Sending over random card {card_obj["name"].values[0]}")
+      if card_obj["layout"].values[0] == "transform" or card_obj["layout"].values[0] == "art_series":
         card_front_url = list(card_obj["card_faces"].values)[0][0]["image_uris"]["large"]
         card_back_url = list(card_obj["card_faces"].values)[0][1]["image_uris"]["large"]
         card_front_response = get(card_front_url, stream=True).raw
@@ -48,7 +49,7 @@ class CardServer(aioquic.asyncio.QuicConnectionProtocol):
       print(f"Searching for card {data} in database")
       card_obj = self.card_df.loc[self.card_df["name"] == data]
       if not card_obj.empty:
-        if card_obj["layout"].values[0] == "transform":
+        if card_obj["layout"].values[0] == "transform" or card_obj["layout"].values[0] == "art_series":
           card_front_url = list(card_obj["card_faces"].values)[0][0]["image_uris"]["large"]
           card_back_url = list(card_obj["card_faces"].values)[0][1]["image_uris"]["large"]
           card_front_response = get(card_front_url, stream=True).raw
