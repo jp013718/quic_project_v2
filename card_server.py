@@ -27,22 +27,43 @@ class CardServer(aioquic.asyncio.QuicConnectionProtocol):
     card = bytes(f"No card by the name '{data}' found...", encoding='utf-8')
     if data == '-r': 
       card_obj = self.card_df.sample()
-      while '//' in card_obj["name"].values[0]:
-        print("Oops, that card was double-sided")
-        card_obj = self.card_df.sample()
-      print(f"Sending over random card {card_obj["name"].values[0]}")
-      card_url = card_obj["image_uris"].values[0]["large"]
-      response = get(card_url, stream=True).raw
-      with Image.open(response) as im:
-        card = im.tobytes()
-    else:
-      print(f"Searching for card {data} in database")
-      card_obj = self.card_df.loc[self.card_df["name"] == data]
-      if not card_obj.empty:
+      if card_obj["layout"].values[0] == "transform":
+        card_front_url = list(card_obj["card_faces"].values)[0][0]["image_uris"]["large"]
+        card_back_url = list(card_obj["card_faces"].values)[0][1]["image_uris"]["large"]
+        card_front_response = get(card_front_url, stream=True).raw
+        card_back_response = get(card_back_url, stream=True).raw
+        with Image.open(card_front_response) as im:
+          card_front = im.tobytes()
+        with Image.open(card_back_response) as im:
+          card_back = im.tobytes()
+        card = card_front + card_back
+      
+      else:
         card_url = card_obj["image_uris"].values[0]["large"]
         response = get(card_url, stream=True).raw
         with Image.open(response) as im:
           card = im.tobytes()
+    
+    else:
+      print(f"Searching for card {data} in database")
+      card_obj = self.card_df.loc[self.card_df["name"] == data]
+      if not card_obj.empty:
+        if card_obj["layout"].values[0] == "transform":
+          card_front_url = list(card_obj["card_faces"].values)[0][0]["image_uris"]["large"]
+          card_back_url = list(card_obj["card_faces"].values)[0][1]["image_uris"]["large"]
+          card_front_response = get(card_front_url, stream=True).raw
+          card_back_response = get(card_back_url, stream=True).raw
+          with Image.open(card_front_response) as im:
+            card_front = im.tobytes()
+          with Image.open(card_back_response) as im:
+            card_back = im.tobytes()
+          card = card_front + card_back
+        
+        else:
+          card_url = card_obj["image_uris"].values[0]["large"]
+          response = get(card_url, stream=True).raw
+          with Image.open(response) as im:
+            card = im.tobytes()
     
     return card
       

@@ -37,14 +37,21 @@ class CardClient(aioquic.asyncio.QuicConnectionProtocol):
 
   def process_images(self, stream_id):
     img_bytes = self.stream_buffers[stream_id]
-    try:
+    if len(img_bytes) == 1886976:
       image = Image.frombytes("RGB", (672, 936), img_bytes)
       image.show()
-    except ValueError as e:
+    elif len(img_bytes) == 3773952:
+      img_front_bytes = img_bytes[:1886976]
+      img_back_bytes = img_bytes[1886976:]
+      image_front = Image.frombytes("RGB", (672, 936), img_front_bytes)
+      image_back = Image.frombytes("RGB", (672, 936), img_back_bytes)
+      image_front.show()
+      image_back.show()
+    else:
       error = img_bytes.decode('utf-8')
       print(error)
-    finally:
-      del self.stream_buffers[stream_id]
+
+    del self.stream_buffers[stream_id]
 
   def process_arguments(self, data):
     for card_name in data[0]:
