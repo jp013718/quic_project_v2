@@ -9,37 +9,42 @@ from aioquic.quic.events import StreamDataReceived
 from PIL import Image
 
 class CardClient(aioquic.asyncio.QuicConnectionProtocol):
+  # Initialize stream buffers
   stream_buffers = {}
-  images = []
   
   def quic_event_received(self, quic_event):
     if isinstance(quic_event, StreamDataReceived):
+      # Add stream data to the respective stream's buffer
       data = quic_event.data
-      if self.stream_buffers[quic_event.stream_id]:
-        self.stream_buffers[quic_event.stream_id] += data
-      else:
-        self.stream_buffers[quic_event.stream_id] = data
+      self.stream_buffers[quic_event.stream_id] += data
 
       if quic_event.end_stream:
+        # If the stream is complete, process the image
         self.process_images(quic_event.stream_id)
+        # If that was the last stream, end the connection
         if not self.stream_buffers:
           self.time.set_result(self._loop.time() - self.start_time)
 
   def transfer(self, data):
+    # Get the next available stream id and use it to send a request
     stream_id = self._quic.get_next_available_stream_id()
     self._quic.send_stream_data(
       stream_id=stream_id,
       data=bytes(data, encoding='utf-8'),
       end_stream=True,
     )
-    self.stream_buffers[stream_id] = None
+    # Initialize the buffer for the new stream id
+    self.stream_buffers[stream_id] = b''
     self.transmit()
 
   def process_images(self, stream_id):
+    # Grab the image bytes from the stream buffer
     img_bytes = self.stream_buffers[stream_id]
+    # Check if the received image is a single-faced card
     if len(img_bytes) == 1886976:
       image = Image.frombytes("RGB", (672, 936), img_bytes)
       image.show()
+    # Check if the received image is a double-faced card
     elif len(img_bytes) == 3773952:
       img_front_bytes = img_bytes[:1886976]
       img_back_bytes = img_bytes[1886976:]
@@ -47,13 +52,16 @@ class CardClient(aioquic.asyncio.QuicConnectionProtocol):
       image_back = Image.frombytes("RGB", (672, 936), img_back_bytes)
       image_front.show()
       image_back.show()
+    # Otherwise, the received data must be a "Card not found" error
     else:
       error = img_bytes.decode('utf-8')
       print(error)
 
+    # Delete the stream buffer once the image (or error) has been processed
     del self.stream_buffers[stream_id]
 
   def process_arguments(self, data):
+    # Handle the arguments; send each card request in its own stream
     for card_name in data[0]:
       self.transfer(card_name)
     for _ in range(data[1]):
