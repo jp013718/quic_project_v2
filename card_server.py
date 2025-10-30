@@ -42,7 +42,7 @@ class CardServer(aioquic.asyncio.QuicConnectionProtocol):
       card_obj = self.card_df.sample()
       print(f"Sending over random card {card_obj["name"].values[0]}")
       # Handling double-faced cards
-      if card_obj["layout"].values[0] == "transform" or card_obj["layout"].values[0] == "art_series":
+      if self.is_dfc(card_obj):
         card_front_url = list(card_obj["card_faces"].values)[0][0]["image_uris"]["large"]
         card_back_url = list(card_obj["card_faces"].values)[0][1]["image_uris"]["large"]
         card_front_response = get(card_front_url, stream=True).raw
@@ -67,7 +67,7 @@ class CardServer(aioquic.asyncio.QuicConnectionProtocol):
       # Check that a card was found
       if not card_obj.empty:
         # Handling double-faced cards
-        if card_obj["layout"].values[0] == "transform" or card_obj["layout"].values[0] == "art_series":
+        if self.is_dfc(card_obj):
           card_front_url = list(card_obj["card_faces"].values)[0][0]["image_uris"]["large"]
           card_back_url = list(card_obj["card_faces"].values)[0][1]["image_uris"]["large"]
           card_front_response = get(card_front_url, stream=True).raw
@@ -87,6 +87,8 @@ class CardServer(aioquic.asyncio.QuicConnectionProtocol):
     
     return card
       
+  def is_dfc(self, card_obj: pandas.DataFrame):
+    return card_obj["layout"].values[0] == "transform" or card_obj["layout"].values[0] == "art_series" or card_obj["layout"].values[0] == "double_faced_token"
 
 
 async def main(certfile, keyfile=None, password=None, host="127.0.0.1", port=9999):
